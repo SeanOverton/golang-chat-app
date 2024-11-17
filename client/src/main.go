@@ -63,9 +63,9 @@ func main() {
 
 			if (rcv_msg.Username != username) {
 				fmt.Printf("\n[%s]: %s", rcv_msg.Username, rcv_msg.Message)
-			}
-
-			fmt.Printf("[%s]: ", username)
+			}else{
+				fmt.Printf("\n[%s(YOU)]: %s", rcv_msg.Username, rcv_msg.Message)
+			}	
 		}
 	}()
 
@@ -75,6 +75,7 @@ func main() {
 		for {
 			// Call the reader to read user's input
 			chat_message, err := reader.ReadString('\n')
+			chat_message = strings.TrimSpace(chat_message)
 			if err != nil {
 				panic(err)
 			}
