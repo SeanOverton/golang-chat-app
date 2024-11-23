@@ -8,6 +8,7 @@ import (
 	"time"
 	"context"
 	"encoding/json"
+	"os"
 )
 
 // converts http connections to websockets
@@ -26,12 +27,13 @@ type Message struct {
 var clients = make(map[*websocket.Conn]bool)
 var broadcast = make(chan Message)
 
-var rabbitMQConnectionString = "amqp://guest:guest@localhost:5672/"
+var rabbitMQURL = os.Getenv("RABBITMQ_URL")
+
 var q amqp.Queue
 var ch *amqp.Channel
 
 func main() {
-	conn, err := amqp.Dial(rabbitMQConnectionString)
+	conn, err := amqp.Dial(rabbitMQURL)
 	if err != nil {
 		panic("Failed to connect to RabbitMQ")
 	}
@@ -43,17 +45,34 @@ func main() {
 	}
 	defer ch.Close()
 
+	err = ch.ExchangeDeclare(
+		"chat",   // name
+		"fanout", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
+	)
+
 	q, err = ch.QueueDeclare(
-		"chat", // name
+		"", // name
 		false,   // durable
 		false,   // delete when unused
-		false,   // exclusive
+		true,   // exclusive
 		false,   // no-wait
 		nil,     // arguments
 	)
 	if err != nil {
 		panic("Failed to create queue")
 	}
+	err = ch.QueueBind(
+		q.Name, // queue name
+		"",     // routing key
+		"chat", // exchange
+		false,
+		nil,
+	)
 
 	// http.HandleFunc("/", homePage)
 	http.HandleFunc("/ws", handleConnections)
@@ -92,7 +111,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func publishToQueue(msg Message) {
+func publishToExchange(msg Message) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -104,8 +123,8 @@ func publishToQueue(msg Message) {
 	}
 	// example := "hello world"
 	err = ch.PublishWithContext(ctx,
-		"",     // exchange
-		q.Name, // routing key
+		"chat",     // exchange
+		"", // routing key
 		false,  // mandatory
 		false,  // immediate
 		amqp.Publishing {
@@ -122,16 +141,16 @@ func handleMessages() {
 	for {
 		msg := <-broadcast
 
-		publishToQueue(msg)
+		publishToExchange(msg)
 
-		for client := range clients {
-			err := client.WriteJSON(msg)
-			if err != nil {
-				fmt.Println(err)
-				client.Close()
-				delete(clients, client)
-			}
-		}
+		// for client := range clients {
+		// 	err := client.WriteJSON(msg)
+		// 	if err != nil {
+		// 		fmt.Println(err)
+		// 		client.Close()
+		// 		delete(clients, client)
+		// 	}
+		// }
 	}
 }
 
