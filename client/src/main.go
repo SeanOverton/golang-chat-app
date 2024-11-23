@@ -19,9 +19,13 @@ type Message struct {
 	Message  string `json:"message"`
 }
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
-
 func main() {
+	if(len(os.Args) <= 1){
+		panic("No IP and port provided for where to connect to websocket server. eg. `go run main.go localhost:8080`")
+	}
+	var port = os.Args[1]
+	var addr = flag.String("addr", fmt.Sprintf("%s", port), "http service address")
+
 	log.SetFlags(0)
 
 	interrupt := make(chan os.Signal, 1)
@@ -46,7 +50,6 @@ func main() {
 	username = strings.TrimSpace(username)
 		
 	log.Println("***Welcome to the chat! ***")
-	fmt.Printf("[%s]: ", username)
 	
 	// listen for messages and print to terminal
 	go func() {
@@ -62,10 +65,10 @@ func main() {
 			err = json.Unmarshal([]byte(message), &rcv_msg)
 
 			if (rcv_msg.Username != username) {
-				fmt.Printf("\n[%s]: %s", rcv_msg.Username, rcv_msg.Message)
+				log.Printf("[%s]: %s", rcv_msg.Username, rcv_msg.Message)
 			}else{
-				fmt.Printf("\n[%s(YOU)]: %s", rcv_msg.Username, rcv_msg.Message)
-			}	
+				log.Printf("[%s(YOU)]: %s", rcv_msg.Username, rcv_msg.Message)
+			}
 		}
 	}()
 
