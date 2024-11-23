@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672" # RabbitMQ messaging port
+      - "15672:15672" # RabbitMQ management UI
+    networks:
+      - mynetwork
+    healthcheck: # required to make sure rabbitmq starts properly before starting the websocket servers
+      test: "exit 0"
+
+  golang-chat-server-1:
+    image: golang-chat-server
+    container_name: golang-chat-server-1
+    ports:
+      - "8080:8080" # Exposes port 8080 for the first chat server
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672 # Connects to RabbitMQ container by name
+    networks:
+      - mynetwork
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  golang-chat-server-2:
+    image: golang-chat-server
+    container_name: golang-chat-server-2
+    ports:
+      - "8081:8080" # Exposes port 8081 for the second chat server
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672 # Connects to RabbitMQ container by name
+    networks:
+      - mynetwork
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+networks:
+  mynetwork:
+    driver: bridge
